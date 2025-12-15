@@ -1,0 +1,132 @@
+// Prisma schema for homelab monitoring
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["views"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MonitorRunStatus {
+  OK
+  WARN
+  FAIL
+}
+
+enum CommandStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
+}
+
+model MonitorCategory {
+  id                 Int                   @id @default(autoincrement())
+  key                String                @unique
+  name               String
+  isAiReadable       Boolean               @default(false)
+  isAiActionable     Boolean               @default(false)
+  monitors           Monitor[]
+  secrets            Secret[]
+  allowedCapabilities CategoryCapability[]
+  commands           AiCommandQueue[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+}
+
+model ToolCapability {
+  id          Int                  @id @default(autoincrement())
+  key         String               @unique
+  categories  CategoryCapability[]
+  commands    AiCommandQueue[]
+}
+
+model CategoryCapability {
+  categoryId   Int
+  capabilityId Int
+  category     MonitorCategory @relation(fields: [categoryId], references: [id])
+  capability   ToolCapability   @relation(fields: [capabilityId], references: [id])
+
+  @@id([categoryId, capabilityId])
+}
+
+model Monitor {
+  id             Int           @id @default(autoincrement())
+  name           String
+  categoryId     Int
+  category       MonitorCategory @relation(fields: [categoryId], references: [id])
+  subtype        String
+  enabled        Boolean        @default(true)
+  scheduleCron   String
+  config         Json
+  ownershipScope String
+  runs           MonitorRun[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model MonitorRun {
+  id         Int              @id @default(autoincrement())
+  monitorId  Int
+  monitor    Monitor          @relation(fields: [monitorId], references: [id])
+  startedAt  DateTime
+  finishedAt DateTime?
+  status     MonitorRunStatus
+  metrics    Json
+  summary    String
+  raw        Json?
+}
+
+model Secret {
+  id             Int              @id @default(autoincrement())
+  name           String
+  categoryId     Int
+  category       MonitorCategory @relation(fields: [categoryId], references: [id])
+  encryptedValue String
+  scope          String
+  createdAt      DateTime        @default(now())
+}
+
+model AiCommandQueue {
+  id            Int            @id @default(autoincrement())
+  requestedBy   String
+  categoryId    Int
+  category      MonitorCategory @relation(fields: [categoryId], references: [id])
+  capabilityId  Int?
+  capability    ToolCapability? @relation(fields: [capabilityId], references: [id])
+  capabilityKey String
+  payload       Json
+  status        CommandStatus   @default(PENDING)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+view AiReadableMonitor {
+  id             Int
+  name           String
+  categoryId     Int
+  subtype        String
+  enabled        Boolean
+  scheduleCron   String
+  config         Json
+  ownershipScope String
+  createdAt      DateTime
+  updatedAt      DateTime
+
+  @@map("ai_readable_monitors")
+}
+
+view AiReadableRun {
+  id         Int
+  monitorId  Int
+  startedAt  DateTime
+  finishedAt DateTime?
+  status     MonitorRunStatus
+  metrics    Json
+  summary    String
+
+  @@map("ai_readable_runs")
+}

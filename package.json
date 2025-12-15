@@ -1,0 +1,32 @@
+{
+  "name": "monitor",
+  "version": "1.0.0",
+  "description": "Admin monitoring dashboard integrating n8n with AI guardrails.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev --name init"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.0",
+    "autoprefixer": "^10.4.20",
+    "next": "^14.2.15",
+    "postcss": "^8.4.49",
+    "prisma": "^6.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "3.4.13",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.12",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "typescript": "^5.7.2"
+  }
+}
