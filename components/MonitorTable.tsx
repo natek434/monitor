@@ -83,48 +83,63 @@ export function MonitorTable({ monitors, categories }: Props) {
       <div className="grid md:grid-cols-2 gap-6">
         <div className="card space-y-3">
           <div className="font-semibold">New monitor</div>
-          <input
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-            placeholder="Name"
-            value={newMonitor.name}
-            onChange={(e) => setNewMonitor({ ...newMonitor, name: e.target.value })}
-          />
+          <label className="space-y-1 text-sm text-slate-200">
+            <span className="text-xs uppercase tracking-wide text-slate-400">Monitor name</span>
+            <input
+              className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+              placeholder="e.g. Public site uptime or Ceph cluster health"
+              value={newMonitor.name}
+              onChange={(e) => setNewMonitor({ ...newMonitor, name: e.target.value })}
+            />
+          </label>
           <div className="grid grid-cols-2 gap-2">
-            <select
-              className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-              value={newMonitor.categoryId}
-              onChange={(e) => setNewMonitor({ ...newMonitor, categoryId: Number(e.target.value) })}
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <select
-              className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-              value={newMonitor.subtype}
-              onChange={(e) => setNewMonitor({ ...newMonitor, subtype: e.target.value })}
-            >
-              <option value="WEBSITE_HTTP">Website / Endpoint</option>
-              <option value="DOCKER_SERVICE">Docker Service</option>
-              <option value="PROXMOX_VM">Proxmox VM</option>
-              <option value="CEPH_CLUSTER">Ceph</option>
-              <option value="NETWORK_HOST">Network</option>
-              <option value="CLOUDFLARE_TUNNEL">Cloudflare Tunnel</option>
-              <option value="SUGGESTION">Draft</option>
-            </select>
+            <label className="space-y-1 text-sm text-slate-200">
+              <span className="text-xs uppercase tracking-wide text-slate-400">Category</span>
+              <select
+                className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                value={newMonitor.categoryId}
+                onChange={(e) => setNewMonitor({ ...newMonitor, categoryId: Number(e.target.value) })}
+              >
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-sm text-slate-200">
+              <span className="text-xs uppercase tracking-wide text-slate-400">Subtype</span>
+              <select
+                className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                value={newMonitor.subtype}
+                onChange={(e) => setNewMonitor({ ...newMonitor, subtype: e.target.value })}
+              >
+                <option value="WEBSITE_HTTP">Website / Endpoint (url/status)</option>
+                <option value="DOCKER_SERVICE">Docker Service (service or container)</option>
+                <option value="PROXMOX_VM">Proxmox VM (node/vm id expectations)</option>
+                <option value="CEPH_CLUSTER">Ceph (cluster health/pools)</option>
+                <option value="NETWORK_HOST">Network (ping/dns/gateway)</option>
+                <option value="CLOUDFLARE_TUNNEL">Cloudflare Tunnel (hostname + TLS days)</option>
+                <option value="SUGGESTION">Draft (chat-suggested)</option>
+              </select>
+            </label>
           </div>
-          <input
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-            placeholder="Schedule cron"
-            value={newMonitor.scheduleCron}
-            onChange={(e) => setNewMonitor({ ...newMonitor, scheduleCron: e.target.value })}
-          />
-          <input
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-            placeholder="Ownership scope"
-            value={newMonitor.ownershipScope}
-            onChange={(e) => setNewMonitor({ ...newMonitor, ownershipScope: e.target.value })}
-          />
+          <label className="space-y-1 text-sm text-slate-200">
+            <span className="text-xs uppercase tracking-wide text-slate-400">Schedule</span>
+            <input
+              className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+              placeholder="Cron string, e.g. */5 * * * * for every 5 minutes"
+              value={newMonitor.scheduleCron}
+              onChange={(e) => setNewMonitor({ ...newMonitor, scheduleCron: e.target.value })}
+            />
+          </label>
+          <label className="space-y-1 text-sm text-slate-200">
+            <span className="text-xs uppercase tracking-wide text-slate-400">Ownership scope</span>
+            <input
+              className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+              placeholder="Who owns this monitor? e.g. homelab, internal, public"
+              value={newMonitor.ownershipScope}
+              onChange={(e) => setNewMonitor({ ...newMonitor, ownershipScope: e.target.value })}
+            />
+          </label>
           <MonitorFormFields
             subtype={newMonitor.subtype}
             onConfigChange={(config) => setNewMonitor({ ...newMonitor, config })}

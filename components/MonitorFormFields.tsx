@@ -29,11 +29,15 @@ export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps)
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-slate-400">Provide configuration for subtype: {subtype}</p>
+      <div className="flex items-center justify-between text-xs text-slate-400">
+        <p>Provide configuration for subtype: {subtype}</p>
+        <span className="text-[11px] text-slate-500">Use the hint template to keep keys aligned with validation.</span>
+      </div>
       <textarea
         className="w-full rounded border border-slate-700 bg-slate-800 p-2 text-sm"
         rows={8}
         defaultValue={JSON.stringify(configTemplate, null, 2)}
+        placeholder="Fill in monitor config JSON. For example: { \"url\": \"https://status.example.com\", \"expectedStatus\": 200 }"
         onChange={(e) => {
           try {
             const parsed = JSON.parse(e.target.value);
