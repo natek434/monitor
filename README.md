@@ -44,11 +44,7 @@ Core entities:
 - `/admin/chat`: chat UI with suggested prompts and safety note
 
 ## n8n workflow guidance
-For each category build a workflow that:
-1. Calls `POST /api/n8n/pull-monitors?category=CATEGORY_KEY` with `X-Service-Token` to fetch enabled monitors.
-2. Runs the matching tool(s) from the category allowlist (e.g., HTTP_GET/TLS_CHECK for WEBSITE, DOCKER_API_READ for DOCKER, etc.).
-3. Pushes results to `POST /api/n8n/push-run` with metrics + summary (no secrets/raw credentials).
-4. Optionally polls `/api/n8n/process-commands` to execute approved commands (like TEST_MONITOR) and mark them executed in a follow-up action.
+See [`docs/n8n-workflows.md`](docs/n8n-workflows.md) for a full, step-by-step walkthrough on wiring n8n to the dashboard, including payload examples, category-specific tool choices, and command queue handling.
 
 ## Adding categories/subtypes safely
 1. Add a Zod schema in `lib/monitorSchemas.ts` and subtype key.
