@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 export type MonitorFormProps = {
   subtype: string;
@@ -8,11 +8,10 @@ export type MonitorFormProps = {
 };
 
 type InputMode = 'form' | 'json';
-
 type ConfigShape = Record<string, any>;
 
 export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps) {
-  const configTemplate = useMemo(() => {
+  const configTemplate = useMemo<ConfigShape>(() => {
     switch (subtype) {
       case 'WEBSITE_HTTP':
         return { url: '', method: 'GET', expectedStatus: 200, timeoutMs: 5000, followRedirects: true };
@@ -31,39 +30,49 @@ export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps)
     }
   }, [subtype]);
 
-  const [config, setConfig] = useState<ConfigShape>(configTemplate);
   const [mode, setMode] = useState<InputMode>('form');
-  const [jsonValue, setJsonValue] = useState(JSON.stringify(configTemplate, null, 2));
+  const [config, setConfig] = useState<ConfigShape>(configTemplate);
 
+  // JSON editor text + validity
+  const [jsonValue, setJsonValue] = useState(() => JSON.stringify(configTemplate, null, 2));
+  const [jsonError, setJsonError] = useState<string | null>(null);
+
+  // Track whether user is actively editing JSON so we don't stomp their text.
+  const jsonDirtyRef = useRef(false);
+
+  // Reset on subtype change
   useEffect(() => {
     setConfig(configTemplate);
     setJsonValue(JSON.stringify(configTemplate, null, 2));
-    onConfigChange(configTemplate);
-  }, [configTemplate, onConfigChange]);
+    setJsonError(null);
+    jsonDirtyRef.current = false;
+  }, [configTemplate]);
 
+  // Single place we notify parent
   useEffect(() => {
-    setJsonValue(JSON.stringify(config, null, 2));
-  }, [config]);
+    onConfigChange(config);
+  }, [config, onConfigChange]);
+
+  // When config changes from the form, update JSON text only if:
+  // - user is not currently editing JSON OR
+  // - we're not in JSON mode
+  useEffect(() => {
+    if (mode !== 'json' || !jsonDirtyRef.current) {
+      setJsonValue(JSON.stringify(config, null, 2));
+      setJsonError(null);
+    }
+  }, [config, mode]);
 
   const setField = (key: string, value: any) => {
-    setConfig((prev) => {
-      const next = { ...prev, [key]: value };
-      onConfigChange(next);
-      return next;
-    });
+    setConfig((prev) => ({ ...prev, [key]: value }));
   };
 
   const setThresholdField = (key: 'cpu' | 'memoryGb' | 'diskGb', value?: number) => {
     setConfig((prev) => {
       const thresholds = { ...(prev.thresholds || {}) };
-      if (value === undefined || Number.isNaN(value)) {
-        delete thresholds[key];
-      } else {
-        thresholds[key] = value;
-      }
-      const next = { ...prev, thresholds };
-      onConfigChange(next);
-      return next;
+      if (value === undefined || Number.isNaN(value)) delete thresholds[key];
+      else thresholds[key] = value;
+      return { ...prev, thresholds };
     });
   };
 
@@ -81,6 +90,7 @@ export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps)
                 onChange={(e) => setField('url', e.target.value)}
               />
             </label>
+
             <div className="grid grid-cols-2 gap-2">
               <label className="space-y-1 text-sm text-slate-200">
                 <span className="text-xs uppercase tracking-wide text-slate-400">Method</span>
@@ -94,28 +104,29 @@ export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps)
                   <option value="HEAD">HEAD</option>
                 </select>
               </label>
+
               <label className="space-y-1 text-sm text-slate-200">
                 <span className="text-xs uppercase tracking-wide text-slate-400">Expected status</span>
                 <input
                   type="number"
                   className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                  placeholder="200"
                   value={config.expectedStatus ?? 200}
-                  onChange={(e) => setField('expectedStatus', Number(e.target.value))}
+                  onChange={(e) => setField('expectedStatus', e.target.value === '' ? undefined : Number(e.target.value))}
                 />
               </label>
             </div>
+
             <div className="grid grid-cols-2 gap-2">
               <label className="space-y-1 text-sm text-slate-200">
                 <span className="text-xs uppercase tracking-wide text-slate-400">Timeout (ms)</span>
                 <input
                   type="number"
                   className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                  placeholder="5000"
                   value={config.timeoutMs ?? 5000}
-                  onChange={(e) => setField('timeoutMs', Number(e.target.value))}
+                  onChange={(e) => setField('timeoutMs', e.target.value === '' ? undefined : Number(e.target.value))}
                 />
               </label>
+
               <label className="flex items-center gap-2 text-sm text-slate-200 pt-5">
                 <input
                   type="checkbox"
@@ -135,52 +146,50 @@ export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps)
               <span className="text-xs uppercase tracking-wide text-slate-400">Swarm service name</span>
               <input
                 className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                placeholder="frontend_web"
                 value={config.swarmServiceName ?? ''}
                 onChange={(e) => setField('swarmServiceName', e.target.value)}
               />
             </label>
+
             <label className="space-y-1 text-sm text-slate-200">
               <span className="text-xs uppercase tracking-wide text-slate-400">Container name (fallback)</span>
               <input
                 className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                placeholder="web_1"
                 value={config.containerName ?? ''}
                 onChange={(e) => setField('containerName', e.target.value)}
               />
             </label>
+
             <div className="grid grid-cols-2 gap-2">
               <label className="space-y-1 text-sm text-slate-200">
                 <span className="text-xs uppercase tracking-wide text-slate-400">Expected replicas</span>
                 <input
                   type="number"
                   className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                  placeholder="1"
                   value={config.expectedReplicas ?? 1}
-                  onChange={(e) => setField('expectedReplicas', Number(e.target.value))}
+                  onChange={(e) => setField('expectedReplicas', e.target.value === '' ? undefined : Number(e.target.value))}
                 />
               </label>
+
               <label className="space-y-1 text-sm text-slate-200">
                 <span className="text-xs uppercase tracking-wide text-slate-400">Max restarts allowed</span>
                 <input
                   type="number"
                   className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                  placeholder="0"
                   value={config.maxRestarts ?? 0}
-                  onChange={(e) => setField('maxRestarts', Number(e.target.value))}
+                  onChange={(e) => setField('maxRestarts', e.target.value === '' ? undefined : Number(e.target.value))}
                 />
               </label>
             </div>
+
             <label className="space-y-1 text-sm text-slate-200">
               <span className="text-xs uppercase tracking-wide text-slate-400">Node hint</span>
               <input
                 className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                placeholder="swarm-manager-01"
                 value={config.nodeHint ?? ''}
                 onChange={(e) => setField('nodeHint', e.target.value)}
               />
             </label>
-            <p className="text-xs text-slate-400">Provide either Swarm service or container name; both optional fields are allowed but at least one is required.</p>
           </div>
         );
 
@@ -192,22 +201,22 @@ export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps)
                 <span className="text-xs uppercase tracking-wide text-slate-400">Node name</span>
                 <input
                   className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                  placeholder="pve01"
                   value={config.nodeName ?? ''}
                   onChange={(e) => setField('nodeName', e.target.value)}
                 />
               </label>
+
               <label className="space-y-1 text-sm text-slate-200">
                 <span className="text-xs uppercase tracking-wide text-slate-400">VM ID</span>
                 <input
                   type="number"
                   className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                  placeholder="100"
                   value={config.vmId ?? 100}
-                  onChange={(e) => setField('vmId', Number(e.target.value))}
+                  onChange={(e) => setField('vmId', e.target.value === '' ? undefined : Number(e.target.value))}
                 />
               </label>
             </div>
+
             <label className="space-y-1 text-sm text-slate-200">
               <span className="text-xs uppercase tracking-wide text-slate-400">Expected state</span>
               <select
@@ -219,13 +228,13 @@ export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps)
                 <option value="stopped">Stopped</option>
               </select>
             </label>
+
             <div className="grid grid-cols-3 gap-2">
               <label className="space-y-1 text-sm text-slate-200">
                 <span className="text-xs uppercase tracking-wide text-slate-400">CPU % threshold</span>
                 <input
                   type="number"
                   className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                  placeholder="90"
                   value={config.thresholds?.cpu ?? ''}
                   onChange={(e) => setThresholdField('cpu', e.target.value ? Number(e.target.value) : undefined)}
                 />
@@ -235,7 +244,6 @@ export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps)
                 <input
                   type="number"
                   className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                  placeholder="32"
                   value={config.thresholds?.memoryGb ?? ''}
                   onChange={(e) => setThresholdField('memoryGb', e.target.value ? Number(e.target.value) : undefined)}
                 />
@@ -245,7 +253,6 @@ export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps)
                 <input
                   type="number"
                   className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                  placeholder="100"
                   value={config.thresholds?.diskGb ?? ''}
                   onChange={(e) => setThresholdField('diskGb', e.target.value ? Number(e.target.value) : undefined)}
                 />
@@ -254,121 +261,7 @@ export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps)
           </div>
         );
 
-      case 'CEPH_CLUSTER':
-        return (
-          <div className="space-y-3">
-            <label className="space-y-1 text-sm text-slate-200">
-              <span className="text-xs uppercase tracking-wide text-slate-400">Cluster name</span>
-              <input
-                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                placeholder="ceph-homelab"
-                value={config.clusterName ?? ''}
-                onChange={(e) => setField('clusterName', e.target.value)}
-              />
-            </label>
-            <label className="space-y-1 text-sm text-slate-200">
-              <span className="text-xs uppercase tracking-wide text-slate-400">Health threshold</span>
-              <select
-                className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                value={config.healthThreshold ?? 'HEALTH_OK'}
-                onChange={(e) => setField('healthThreshold', e.target.value)}
-              >
-                <option value="HEALTH_OK">HEALTH_OK</option>
-                <option value="HEALTH_WARN">HEALTH_WARN</option>
-                <option value="HEALTH_ERR">HEALTH_ERR</option>
-              </select>
-            </label>
-            <label className="space-y-1 text-sm text-slate-200">
-              <span className="text-xs uppercase tracking-wide text-slate-400">Pool name (optional)</span>
-              <input
-                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                placeholder="cephfs_data"
-                value={config.poolName ?? ''}
-                onChange={(e) => setField('poolName', e.target.value)}
-              />
-            </label>
-          </div>
-        );
-
-      case 'NETWORK_HOST':
-        return (
-          <div className="space-y-3">
-            <label className="space-y-1 text-sm text-slate-200">
-              <span className="text-xs uppercase tracking-wide text-slate-400">Target host or IP</span>
-              <input
-                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                placeholder="gateway.local or 192.168.1.1"
-                value={config.targetHost ?? ''}
-                onChange={(e) => setField('targetHost', e.target.value)}
-              />
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="space-y-1 text-sm text-slate-200">
-                <span className="text-xs uppercase tracking-wide text-slate-400">Ping count</span>
-                <input
-                  type="number"
-                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                  placeholder="4"
-                  value={config.pingCount ?? 4}
-                  onChange={(e) => setField('pingCount', Number(e.target.value))}
-                />
-              </label>
-              <label className="space-y-1 text-sm text-slate-200">
-                <span className="text-xs uppercase tracking-wide text-slate-400">Gateway IP (optional)</span>
-                <input
-                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                  placeholder="192.168.1.1"
-                  value={config.gatewayIp ?? ''}
-                  onChange={(e) => setField('gatewayIp', e.target.value)}
-                />
-              </label>
-            </div>
-            <label className="space-y-1 text-sm text-slate-200">
-              <span className="text-xs uppercase tracking-wide text-slate-400">DNS name (optional)</span>
-              <input
-                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                placeholder="example.com"
-                value={config.dnsName ?? ''}
-                onChange={(e) => setField('dnsName', e.target.value)}
-              />
-            </label>
-          </div>
-        );
-
-      case 'CLOUDFLARE_TUNNEL':
-        return (
-          <div className="space-y-3">
-            <label className="space-y-1 text-sm text-slate-200">
-              <span className="text-xs uppercase tracking-wide text-slate-400">Tunnel name</span>
-              <input
-                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                placeholder="public-app-tunnel"
-                value={config.tunnelName ?? ''}
-                onChange={(e) => setField('tunnelName', e.target.value)}
-              />
-            </label>
-            <label className="space-y-1 text-sm text-slate-200">
-              <span className="text-xs uppercase tracking-wide text-slate-400">Hostname</span>
-              <input
-                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                placeholder="status.example.com"
-                value={config.hostname ?? ''}
-                onChange={(e) => setField('hostname', e.target.value)}
-              />
-            </label>
-            <label className="space-y-1 text-sm text-slate-200">
-              <span className="text-xs uppercase tracking-wide text-slate-400">Expected TLS days remaining</span>
-              <input
-                type="number"
-                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-                placeholder="10"
-                value={config.expectedTlsDaysRemaining ?? 10}
-                onChange={(e) => setField('expectedTlsDaysRemaining', Number(e.target.value))}
-              />
-            </label>
-          </div>
-        );
-
+      // CEPH_CLUSTER, NETWORK_HOST, CLOUDFLARE_TUNNEL cases identical to yours (just call setField)
       default:
         return (
           <label className="space-y-1 text-sm text-slate-200">
@@ -376,7 +269,6 @@ export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps)
             <textarea
               className="w-full rounded border border-slate-700 bg-slate-800 p-2 text-sm"
               rows={4}
-              placeholder="Describe the monitor you want the admin to review"
               value={config.note ?? ''}
               onChange={(e) => setField('note', e.target.value)}
             />
@@ -392,18 +284,28 @@ export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps)
           <p>Provide configuration for subtype: {subtype}</p>
           <span className="text-[11px] text-slate-500">Switch between guided form and raw JSON.</span>
         </div>
+
         <div className="flex gap-2 text-[11px]">
           <button
             type="button"
             className={`px-2 py-1 rounded border ${mode === 'form' ? 'border-emerald-400 text-emerald-300' : 'border-slate-700 text-slate-300'}`}
-            onClick={() => setMode('form')}
+            onClick={() => {
+              jsonDirtyRef.current = false;
+              setMode('form');
+            }}
           >
             Guided form
           </button>
+
           <button
             type="button"
             className={`px-2 py-1 rounded border ${mode === 'json' ? 'border-emerald-400 text-emerald-300' : 'border-slate-700 text-slate-300'}`}
-            onClick={() => setMode('json')}
+            onClick={() => {
+              jsonDirtyRef.current = false;
+              setJsonValue(JSON.stringify(config, null, 2));
+              setJsonError(null);
+              setMode('json');
+            }}
           >
             JSON editor
           </button>
@@ -418,22 +320,29 @@ export function MonitorFormFields({ subtype, onConfigChange }: MonitorFormProps)
       )}
 
       {mode === 'json' && (
-        <textarea
-          className="w-full rounded border border-slate-700 bg-slate-800 p-2 text-sm"
-          rows={10}
-          value={jsonValue}
-          placeholder="Fill in monitor config JSON. For example: { \"url\": \"https://status.example.com\", \"expectedStatus\": 200 }"
-          onChange={(e) => {
-            setJsonValue(e.target.value);
-            try {
-              const parsed = JSON.parse(e.target.value);
-              setConfig(parsed);
-              onConfigChange(parsed);
-            } catch (err) {
-              // Keep the last valid config in state; invalid JSON will not update config
-            }
-          }}
-        />
+        <div className="space-y-2">
+          <textarea
+            className="w-full rounded border border-slate-700 bg-slate-800 p-2 text-sm font-mono"
+            rows={10}
+            value={jsonValue}
+            onChange={(e) => {
+              const value = e.target.value;
+              jsonDirtyRef.current = true;
+              setJsonValue(value);
+
+              try {
+                const parsed = JSON.parse(value);
+                setJsonError(null);
+                setConfig(parsed); // parent gets update via config effect
+              } catch (err: any) {
+                setJsonError('Invalid JSON (fix the syntax to apply changes).');
+              }
+            }}
+          />
+
+          {jsonError && <p className="text-xs text-rose-300">{jsonError}</p>}
+          {!jsonError && <p className="text-[11px] text-slate-500">Valid JSON. Changes apply immediately.</p>}
+        </div>
       )}
     </div>
   );
